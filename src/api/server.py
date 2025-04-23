@@ -1,25 +1,42 @@
 from fastapi import FastAPI, HTTPException
-from api.schema import QueryRequest, QueryResponse, QueryResult
-from api.rag_system import RAGSystem
+from pydantic import BaseModel
+import chromadb
+from chromadb.utils.embedding_functions import SentenceTransformerEmbeddingFunction
 
-app = FastAPI(title="Kenyan Constitution RAG API")
+app = FastAPI()
 
-# Load RAG system once
-rag_system = RAGSystem(load_saved=True)
+client = chromadb.PersistentClient(path="chroma_store")
+collection = client.get_or_create_collection(name="Kenya_constitution")
 
-@app.get("/")
-def read_root():
-    return {"message": "Kenyan Constitution RAG API is live!"}
+embedding_fn = SentenceTransformerEmbeddingFunction(model_name="all-MiniLM-L6-v2")
 
-@app.post("/query", response_model=QueryResponse)
-def query_constitution(request: QueryRequest):
+class QueryRequest(BaseModel):
+    question: str
+
+@app.post("/query")
+def query_constitution(req: QueryRequest):
     try:
-        results = rag_system.query(request.question)
-        return QueryResponse(
-            results=[
-                QueryResult(text=chunk["text"], distance=chunk["distance"])
-                for chunk in results
-            ]
+        results = collection.query(
+            query_texts=[req.question],
+            n_results=3,
+            embedding_function=embedding_fn
         )
+        return {
+            "question": req.question,
+            "results": [
+                {
+                    "id": id_,
+                    "text": doc,
+                    "title": meta.get("title"),
+                    "distance": dist
+                }
+                for id_, doc, meta, dist in zip(
+                    results["ids"][0],
+                    results["documents"][0],
+                    results["metadatas"][0],
+                    results["distances"][0]
+                )
+            ]
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
