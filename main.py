@@ -90,21 +90,53 @@ def test_system():
             print(f"   Distance: {result['distance']:.4f}")
 
 def main():
-    parser = argparse.ArgumentParser(description='Run the Kenyan Constitution RAG System')
-    parser.add_argument('--skip-processing', action='store_true', help='Skip document processing and use saved model')
+    parser = argparse.ArgumentParser(description="Kenyan Constitution RAG System")
+    subparsers = parser.add_subparsers(dest="command")
+
+    subparsers.add_parser("setup", help="Create required directories")
+    subparsers.add_parser("process", help="Extract text and chunk it")
+    subparsers.add_parser("embed", help="Generate embeddings from chunks")
+    subparsers.add_parser("save", help="Save model and embeddings")
+    subparsers.add_parser("test", help="Run sample queries")
+    subparsers.add_parser("all", help="Run the full pipeline")
+
     args = parser.parse_args()
-    
     print("=== Kenyan Constitution RAG System ===")
-    setup_directories()
-    
-    if not args.skip_processing:
-        # Process documents and generate embeddings
+
+    if args.command == "setup":
+        setup_directories()
+
+    elif args.command == "process":
+        setup_directories()
+        global cached_chunks
+        cached_chunks = process_documents()  # Save in-memory for next step
+
+    elif args.command == "embed":
+        if "cached_chunks" not in globals():
+            print("Please run 'process' before 'embed'.")
+            return
+        global cached_embeddings, cached_model
+        cached_model, cached_embeddings = generate_embeddings(cached_chunks)
+
+    elif args.command == "save":
+        if not all(k in globals() for k in ["cached_chunks", "cached_embeddings", "cached_model"]):
+            print("Please run 'process' and 'embed' before 'save'.")
+            return
+        save_model(cached_model, cached_embeddings, cached_chunks)
+
+    elif args.command == "test":
+        test_system()
+
+    elif args.command == "all":
+        setup_directories()
         chunks = process_documents()
         embedding_model, embeddings = generate_embeddings(chunks)
         save_model(embedding_model, embeddings, chunks)
-    
-    # Test the system
-    test_system()
+        test_system()
 
+    else:
+        parser.print_help()
+
+        
 if __name__ == "__main__":
     main()
