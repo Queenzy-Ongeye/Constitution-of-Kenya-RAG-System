@@ -43,7 +43,7 @@ def process_documents():
     print(f"Extracted {len(text)} characters")
     
     print("Chunking text...")
-    chunks = processor.chunk_text(text)
+    chunks = list(processor.chunk_text(text))  # Still lists, but generator handles large splits better
     print(f"Generated {len(chunks)} chunks")
     
     return chunks

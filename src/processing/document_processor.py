@@ -14,23 +14,15 @@ class DocumentProcessor:
                 text += page.extract_text() + "\n"
         return text
     
-    def chunk_text(self, text: str) -> List[str]:
-        """Split text into chunks of specified size."""
-        chunks = []
-        start = 0
+    def chunk_text(self, text: str, chunk_size=500, overlap=50):
+        """Generator to yield text chunks from a large document."""
         text_length = len(text)
-        
+        start = 0
         while start < text_length:
-            end = min(start + CHUNK_SIZE, text_length)
-            # Ensure we don't cut in the middle of a word
-            if end < text_length:
-                while end > start and text[end] not in (' ', '\n'):
-                    end -= 1
-            chunks.append(text[start:end].strip())
-            start = end - CHUNK_OVERLAP if end > start else end
-            
-        return chunks
-    
+            end = min(start + chunk_size, text_length)
+            yield text[start:end]
+        start += chunk_size - overlap
+
     def process_document(self) -> List[str]:
         """Process the entire document and return chunks."""
         text = self.extract_text()
